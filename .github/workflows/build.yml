@@ -8,8 +8,8 @@ on:
 env:
   APP_NAME: "LibreTime Tagger"
   SCRIPT_FILE: "libretime_tagger.py"  # Your actual filename
-  MAC_ICON: "icon.icns"           # Your macOS icon
-  WIN_ICON: "icon.ico"           # Use same for Windows for now
+  MAC_ICON: "icon.icns"               # Your macOS icon
+  WIN_ICON: "icon.ico"                # Your Windows icon
 
 jobs:
   build-windows:
@@ -36,12 +36,34 @@ jobs:
       run: |
         pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --icon=${{ env.WIN_ICON }} --clean ${{ env.SCRIPT_FILE }}
     
-    - name: Upload Windows executable to release
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: LibreTime-Tagger-Windows
+        path: dist/${{ env.APP_NAME }}.exe
+    
+    - name: Get release upload URL
+      if: startsWith(github.ref, 'refs/tags/')
+      id: get_release
+      uses: actions/github-script@v6
+      env:
+        TAG_NAME: ${{ github.ref_name }}
+      with:
+        script: |
+          const { data: release } = await github.rest.repos.getReleaseByTag({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag: process.env.TAG_NAME
+          });
+          core.setOutput('upload_url', release.upload_url);
+    
+    - name: Upload Windows to release
+      if: steps.get_release.outputs.upload_url
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ github.event.release.upload_url }}
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
         asset_path: ./dist/${{ env.APP_NAME }}.exe
         asset_name: ${{ env.APP_NAME }}-Windows.exe
         asset_content_type: application/octet-stream
@@ -85,22 +107,47 @@ jobs:
           "${{ env.APP_NAME }}-${GITHUB_REF_NAME}.dmg" \
           "dist/"
     
+    - name: Upload macOS artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: LibreTime-Tagger-macOS
+        path: |
+          dist/${{ env.APP_NAME }}
+          ${{ env.APP_NAME }}-*.dmg
+    
+    - name: Get release upload URL
+      if: startsWith(github.ref, 'refs/tags/')
+      id: get_release
+      uses: actions/github-script@v6
+      env:
+        TAG_NAME: ${{ github.ref_name }}
+      with:
+        script: |
+          const { data: release } = await github.rest.repos.getReleaseByTag({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag: process.env.TAG_NAME
+          });
+          core.setOutput('upload_url', release.upload_url);
+    
     - name: Upload macOS app to release
+      if: steps.get_release.outputs.upload_url
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ github.event.release.upload_url }}
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
         asset_path: ./dist/${{ env.APP_NAME }}
         asset_name: ${{ env.APP_NAME }}-macOS
         asset_content_type: application/octet-stream
     
     - name: Upload macOS DMG to release
+      if: steps.get_release.outputs.upload_url
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ github.event.release.upload_url }}
+        upload_url: ${{ steps.get_release.outputs.upload_url }}
         asset_path: ./${{ env.APP_NAME }}-${GITHUB_REF_NAME}.dmg
         asset_name: ${{ env.APP_NAME }}-macOS.dmg
         asset_content_type: application/octet-stream
