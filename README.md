@@ -10,7 +10,9 @@ Cover art is converted to 1400×1400p JPG format to ensure cross-platform compat
 
 <img width="1010" height="783" alt="Bildschirmfoto 2025-10-10 um 17 32 08" src="https://github.com/user-attachments/assets/5ecfd930-d894-4134-9751-aab844a6c5c1" />
 
-## Fields
+## How To Use This Thing That Should Be Operable by a Monkey?
+
+### Fields
 
 - **Select MP3 File:** 
 Self-explanatory
@@ -33,7 +35,7 @@ Single number per field.
 - **Cover Art:** 
 Optional field but nice-to-have. Accepts `.PNG` and `.JPG`.
 
-## Buttons
+### Buttons
 
 - **Preview:** 
 Gives a preview of how the file will be named, etc. (see second screenshot).
