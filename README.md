@@ -1,13 +1,48 @@
-# sphere-libretime-tagger
-As-simple-as-possible GUI to tag and rename mp3 files according to [Sphere Radio](sphere-radio.net) LibreTime tagging scheme.
+# ✅ LibreTime MP3 Tagger
 
-The tool lets the user enter the relevant information which is then saved in ID3 tags.
+As simple-as-possible GUI to tag and rename mp3 files according to [Sphere Radio](sphere-radio.net) LibreTime tagging scheme.
 
-Cover Art is converted to 1400x1400p JPG format to ensure cross-platform compability.
+The tool lets the user enter the relevant information, which is then saved in ID3 tags.
 
-<img width="920" height="783" alt="image" src="https://github.com/user-attachments/assets/a291459d-ce88-4894-8667-9788074ae7e7" />
+Cover art is converted to 1400×1400p JPG format to ensure cross-platform compatibility.
 
-<img width="920" height="783" alt="image 2" src="https://github.com/user-attachments/assets/5d610509-681c-4b09-bdde-60e9b1b4bf8a" />
+<img width="1010" height="783" alt="Bildschirmfoto 2025-10-10 um 17 12 48" src="https://github.com/user-attachments/assets/72e0b0bd-0f17-429d-8e4d-735e01615b99" />
+
+<img width="1010" height="783" alt="Bildschirmfoto 2025-10-10 um 17 12 41" src="https://github.com/user-attachments/assets/64d0edbe-31fe-475b-bb52-962a14f3994c" />
+
+## Fields
+
+- **Select MP3 File:** 
+Self-explanatory
+
+- **Contributors:** 
+Enter hosts, DJs, or other important contributors here. Multiple contributors should be comma-separated (e.g., "DJ A, DJ B"). The field is optional but highly recommended.
+
+- **Show Name:** 
+Self-explanatory
+
+- **Episode Number:** 
+The number of your episode. Expects a numeric value, so "CINCO" is not allowed. Field is optional but highly recommended.
+
+- **Episode Title:** 
+Optional title of your episode. Not for descriptions.
+
+- **Broadcast Date:** 
+Single number per field.
+
+- **Cover Art:** 
+Optional field but nice-to-have. Accepts `.PNG` and `.JPG`.
+
+## Buttons
+
+- **Preview:** 
+Gives a preview of how the file will be named, etc. (see second screenshot).
+
+- **Save:** 
+Saves, obviously. Saving overwrites the information of the original file.
+
+- **Clear:** 
+Clears all fields at once.
 
 ## License
 
