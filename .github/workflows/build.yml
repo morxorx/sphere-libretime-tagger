@@ -38,8 +38,7 @@ jobs:
     
     - name: Build Windows executable
       run: |
-        # Keep onefile for Windows (works fine)
-        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --icon=${{ env.WIN_ICON }} --clean ${{ env.SCRIPT_FILE }}
+        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --icon="${{ env.WIN_ICON }}" --clean "${{ env.SCRIPT_FILE }}"
     
     - name: Upload Windows artifact
       uses: actions/upload-artifact@v4
@@ -47,9 +46,9 @@ jobs:
         name: LibreTime-Tagger-Windows
         path: dist/${{ env.APP_NAME }}.exe
     
-    - name: Get release upload URL
+    - name: Get release upload URL (Windows)
       if: startsWith(github.ref, 'refs/tags/')
-      id: get_release
+      id: get_release_windows  # ← UNIQUE ID
       uses: actions/github-script@v6
       env:
         TAG_NAME: ${{ github.ref_name }}
@@ -63,29 +62,53 @@ jobs:
           core.setOutput('upload_url', release.upload_url);
     
     - name: Upload Windows to release
-      if: steps.get_release.outputs.upload_url
+      if: steps.get_release_windows.outputs.upload_url
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        upload_url: ${{ steps.get_release_windows.outputs.upload_url }}
         asset_path: ./dist/${{ env.APP_NAME }}.exe
         asset_name: ${{ env.APP_NAME }}-Windows.exe
         asset_content_type: application/octet-stream
 
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller pillow mutagen
+    
+    - name: Build macOS app (onedir mode)
+      run: |
+        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onedir --icon="${{ env.MAC_ICON }}" --clean "${{ env.SCRIPT_FILE }}"
+    
     - name: Create DMG package from app bundle
       id: create_dmg
       run: |
         brew install create-dmg
-        DMG_NAME="LibreTime Tagger-${GITHUB_REF_NAME}.dmg"
+        DMG_NAME="${{ env.APP_NAME }}-${GITHUB_REF_NAME}.dmg"
         create-dmg \
-          --volname "LibreTime Tagger" \
-          --volicon "icon.icns" \
+          --volname "${{ env.APP_NAME }}" \
+          --volicon "${{ env.MAC_ICON }}" \
           --window-pos 200 120 \
           --window-size 600 400 \
           --icon-size 100 \
-          --icon "LibreTime Tagger.app" 175 180 \
-          --hide-extension "LibreTime Tagger.app" \
+          --icon "${{ env.APP_NAME }}.app" 175 180 \
+          --hide-extension "${{ env.APP_NAME }}.app" \
           --app-drop-link 425 180 \
           "$DMG_NAME" \
           "dist/"
@@ -96,12 +119,12 @@ jobs:
       with:
         name: LibreTime-Tagger-macOS
         path: |
-          dist/LibreTime Tagger.app/
-          LibreTime Tagger-*.dmg
+          dist/${{ env.APP_NAME }}.app/
+          ${{ env.APP_NAME }}-*.dmg
     
-    - name: Get release upload URL
+    - name: Get release upload URL (macOS)
       if: startsWith(github.ref, 'refs/tags/')
-      id: get_release
+      id: get_release_macos  # ← UNIQUE ID
       uses: actions/github-script@v6
       env:
         TAG_NAME: ${{ github.ref_name }}
@@ -115,29 +138,29 @@ jobs:
           core.setOutput('upload_url', release.upload_url);
     
     - name: Create zip of macOS app bundle
-      if: steps.get_release.outputs.upload_url
+      if: steps.get_release_macos.outputs.upload_url
       run: |
         cd dist
-        ditto -c -k --keepParent "LibreTime Tagger.app" "LibreTime Tagger-macOS.app.zip"
+        ditto -c -k --keepParent "${{ env.APP_NAME }}.app" "${{ env.APP_NAME }}-macOS.app.zip"
     
     - name: Upload macOS app bundle to release
-      if: steps.get_release.outputs.upload_url
+      if: steps.get_release_macos.outputs.upload_url
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./dist/LibreTime Tagger-macOS.app.zip
-        asset_name: LibreTime Tagger-macOS.app.zip
+        upload_url: ${{ steps.get_release_macos.outputs.upload_url }}
+        asset_path: ./dist/${{ env.APP_NAME }}-macOS.app.zip
+        asset_name: ${{ env.APP_NAME }}-macOS.app.zip
         asset_content_type: application/zip
     
     - name: Upload macOS DMG to release
-      if: steps.get_release.outputs.upload_url
+      if: steps.get_release_macos.outputs.upload_url
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        upload_url: ${{ steps.get_release.outputs.upload_url }}
+        upload_url: ${{ steps.get_release_macos.outputs.upload_url }}
         asset_path: ./${{ steps.create_dmg.outputs.DMG_FILE }}
-        asset_name: LibreTime Tagger-macOS.dmg
+        asset_name: ${{ env.APP_NAME }}-macOS.dmg
         asset_content_type: application/octet-stream
