@@ -1,6 +1,9 @@
 # sphere-libretime-tagger
 Tool to tag mp3 files for LibreTime according to Sphere Radio tagging convention.
 
+<img width="920" height="783" alt="image" src="https://github.com/user-attachments/assets/8f7a581d-7320-43a1-a392-dc3b6c856251" />
+
+
 ## License
 
 The MIT License (MIT)
