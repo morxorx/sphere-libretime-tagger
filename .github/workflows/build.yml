@@ -1,0 +1,108 @@
+name: Build LibreTime Tagger
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+env:
+  APP_NAME: "LibreTime Tagger"
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller pillow mutagen
+    
+    - name: Build Windows executable
+      run: |
+        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --clean libretime_tagger_crossplatform.py
+    
+    - name: Upload Windows artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: LibreTime-Tagger-Windows
+        path: dist/${{ env.APP_NAME }}.exe
+
+  build-macos:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        python-version: [3.9]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pyinstaller pillow mutagen
+    
+    - name: Build macOS app
+      run: |
+        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --clean libretime_tagger_crossplatform.py
+    
+    - name: Create zip for notarization
+      run: |
+        cd dist
+        ditto -c -k --keepParent "${{ env.APP_NAME }}" "${{ env.APP_NAME }}.zip"
+    
+    - name: Notarize app with Apple ID
+      env:
+        APPLE_ID: ${{ secrets.APPLE_ID }}
+        APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      run: |
+        echo "Submitting app for notarization..."
+        xcrun notarytool submit "dist/${{ env.APP_NAME }}.zip" \
+          --apple-id "$APPLE_ID" \
+          --password "$APPLE_PASSWORD" \
+          --wait
+        echo "Notarization completed!"
+    
+    - name: Staple notarization ticket
+      run: |
+        xcrun stapler staple "dist/${{ env.APP_NAME }}"
+        echo "Stapling completed!"
+    
+    - name: Create DMG package
+      run: |
+        brew install create-dmg
+        create-dmg \
+          --volname "${{ env.APP_NAME }}" \
+          --window-pos 200 120 \
+          --window-size 600 400 \
+          --icon-size 100 \
+          --icon "${{ env.APP_NAME }}" 175 180 \
+          --hide-extension "${{ env.APP_NAME }}" \
+          --app-drop-link 425 180 \
+          "${{ env.APP_NAME }}-${GITHUB_REF_NAME}.dmg" \
+          "dist/"
+    
+    - name: Upload macOS artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: LibreTime-Tagger-macOS
+        path: |
+          dist/${{ env.APP_NAME }}
+          ${{ env.APP_NAME }}-*.dmg
