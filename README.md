@@ -1,10 +1,10 @@
 # ✅ LibreTime MP3 Tagger
 
-As simple-as-possible GUI to tag and rename mp3 files according to [Sphere Radio](sphere-radio.net) LibreTime tagging scheme.
+As simple-as-possible GUI to tag and rename `.mp3` files according to [Sphere Radio](sphere-radio.net) LibreTime tagging scheme.
 
 The tool lets the user enter the relevant information, which is then saved in ID3 tags.
 
-Cover art is converted to 1400×1400p JPG format to ensure cross-platform compatibility.
+Cover art is converted to 1400×1400p JPEG format to ensure cross-platform compatibility.
 
 <img width="1010" height="783" alt="Bildschirmfoto 2025-10-10 um 17 12 48" src="https://github.com/user-attachments/assets/72e0b0bd-0f17-429d-8e4d-735e01615b99" />
 
