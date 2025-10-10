@@ -61,7 +61,7 @@ jobs:
     
     - name: Build macOS app
       run: |
-        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --clean ${{ env.SCRIPT_FILE }}
+        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --clean libretime_tagger_crossplatform.py
     
     - name: Create zip for notarization
       run: |
