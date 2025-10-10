@@ -10,7 +10,7 @@ Cover art is converted to 1400×1400p JPEG format to ensure cross-platform compa
 
 <img width="1010" height="783" alt="Bildschirmfoto 2025-10-10 um 17 32 08" src="https://github.com/user-attachments/assets/5ecfd930-d894-4134-9751-aab844a6c5c1" />
 
-## How To Install?
+## How to Install?
 
 The App is **unsigned** which means that both macOS and Windows will warn the user about potential security risks. You can ignore these.
 
@@ -48,18 +48,18 @@ Accept again.
 
 **Now you can use the app normally.**
 
-## How To Use This Thing That Should Be Operable by a Monkey?
+## More Information
+
+Everything should be pretty self-explanatory.
 
 ### Fields
 
-- **Select MP3 File:** 
-Self-explanatory
+- **Select MP3 File** 
 
 - **Contributors:** 
 Enter hosts, DJs, or other important contributors here. Multiple contributors should be comma-separated (e.g., "DJ A, DJ B"). The field is optional but highly recommended.
 
-- **Show Name:** 
-Self-explanatory
+- **Show Name** 
 
 - **Episode Number:** 
 The number of your episode. Expects a numeric value, so "CINCO" is not allowed. Field is optional but highly recommended.
