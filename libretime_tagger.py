@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-libretime_tagger_crossplatform.py - Refactored MP3 Tagger with improved architecture
+libretime_tagger.py - Refactored MP3 Tagger with improved architecture
 """
 
 import re
