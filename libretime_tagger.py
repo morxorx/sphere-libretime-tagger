@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-libretime_tagger_crossplatform.py - Refactored MP3 Tagger with improved architecture
+libretime_tagger.py - Refactored MP3 Tagger with improved architecture
 """
 
 import re
@@ -14,6 +14,8 @@ from tkinter import filedialog, messagebox, scrolledtext
 from mutagen.id3 import ID3, ID3NoHeaderError, TIT2, APIC, error, TPE1, TALB, TRCK, TCOM
 from PIL import Image, UnidentifiedImageError, ImageTk
 import io
+import platform
+import subprocess
 
 # ----------------- Data Models ----------------- #
 
@@ -253,7 +255,7 @@ class MP3TaggerEngine:
             return ValidationResult(True, "", new_path)
         except Exception as e:
             return ValidationResult(False, f"Error renaming file: {e}")
-
+        
 # ----------------- GUI Application ----------------- #
 
 class MP3TaggerGUI:
@@ -265,7 +267,7 @@ class MP3TaggerGUI:
 
     def setup_gui(self):
         """Initialize the GUI components"""
-        self.master.title("LibreTime MP3 Tagger - Cross Platform")
+        self.master.title("LibreTime MP3 Tagger")
         self.master.resizable(True, False)
         self.master.columnconfigure(1, weight=1)
 
