@@ -304,8 +304,8 @@ class MP3TaggerGUI:
 
     def create_metadata_fields(self):
         """Create metadata input fields"""
-        # Hosts/Contributors
-        tk.Label(self.master, text="Hosts/Contributors (comma):").grid(
+        # Contributors
+        tk.Label(self.master, text="Contributors (comma-separated):").grid(
             row=1, column=0, sticky="w", padx=5
         )
         self.hosts_entry = tk.Entry(self.master)
@@ -335,7 +335,7 @@ class MP3TaggerGUI:
         self.episode_entry = tk.Entry(episode_frame, width=10)
         self.episode_entry.grid(row=0, column=0, sticky="w", padx=(0, 5))
         
-        tk.Label(episode_frame, text="Episode Title:").grid(
+        tk.Label(episode_frame, text="Episode Title (optional):").grid(
             row=0, column=1, sticky="e", padx=(0, 5)
         )
         self.episode_title_entry = tk.Entry(episode_frame)
@@ -601,7 +601,7 @@ class MP3TaggerGUI:
             f"Original file: {mp3_path.name}",
             f"New filename:  {new_filename}",
             "Tags to write:",
-            f"  Artist (Hosts/Contributors): {tags.artist or '(empty)'}",
+            f"  Artist (Contributors): {tags.artist or '(empty)'}",
             f"  Album (Show name):           {tags.album}",
             f"  TrackNumber (Ep#):           {tags.track_number or '(empty)'}",
             f"  Composer (Date):             {tags.composer}",
