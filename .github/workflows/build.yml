@@ -68,15 +68,18 @@ jobs:
         cd dist
         ditto -c -k --keepParent "${{ env.APP_NAME }}" "${{ env.APP_NAME }}.zip"
     
-    - name: Notarize app with Apple ID
-      env:
-        APPLE_ID: ${{ secrets.APPLE_ID }}
-        APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+    - name: Configure notarytool with free Apple ID
+      run: |
+        # Store credentials in keychain profile
+        xcrun notarytool store-credentials "libretime-profile" \
+          --apple-id "$APPLE_ID" \
+          --password "$APPLE_PASSWORD"
+    
+    - name: Notarize app with profile
       run: |
         echo "Submitting app for notarization..."
         xcrun notarytool submit "dist/${{ env.APP_NAME }}.zip" \
-          --apple-id "$APPLE_ID" \
-          --password "$APPLE_PASSWORD" \
+          --keychain-profile "libretime-profile" \
           --wait
         echo "Notarization completed!"
     
