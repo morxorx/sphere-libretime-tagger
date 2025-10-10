@@ -8,7 +8,7 @@ Cover art is converted to 1400×1400p JPG format to ensure cross-platform compat
 
 <img width="1010" height="783" alt="Bildschirmfoto 2025-10-10 um 17 12 48" src="https://github.com/user-attachments/assets/72e0b0bd-0f17-429d-8e4d-735e01615b99" />
 
-<img width="1010" height="783" alt="Bildschirmfoto 2025-10-10 um 17 12 41" src="https://github.com/user-attachments/assets/64d0edbe-31fe-475b-bb52-962a14f3994c" />
+<img width="1010" height="783" alt="Bildschirmfoto 2025-10-10 um 17 32 08" src="https://github.com/user-attachments/assets/5ecfd930-d894-4134-9751-aab844a6c5c1" />
 
 ## Fields
 
