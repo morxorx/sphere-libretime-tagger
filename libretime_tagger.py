@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-libretime_tagger.py - Refactored MP3 Tagger with improved architecture
+libretime_tagger_crossplatform.py - Refactored MP3 Tagger with improved architecture
 """
 
 import re
@@ -254,19 +254,6 @@ class MP3TaggerEngine:
         except Exception as e:
             return ValidationResult(False, f"Error renaming file: {e}")
 
-    @staticmethod
-    def backup_original_file(file_path: Path) -> ValidationResult:
-        """Create a backup of the original file"""
-        try:
-            backup_path = file_path.with_suffix('.mp3.original')
-            if backup_path.exists():
-                backup_path.unlink()  # Remove existing backup
-            import shutil
-            shutil.copy2(file_path, backup_path)
-            return ValidationResult(True, "", backup_path)
-        except Exception as e:
-            return ValidationResult(False, f"Could not create backup: {e}")
-
 # ----------------- GUI Application ----------------- #
 
 class MP3TaggerGUI:
@@ -304,7 +291,7 @@ class MP3TaggerGUI:
 
     def create_metadata_fields(self):
         """Create metadata input fields"""
-        # Contributors
+        # Hosts/Contributors
         tk.Label(self.master, text="Contributors (comma-separated):").grid(
             row=1, column=0, sticky="w", padx=5
         )
@@ -695,11 +682,6 @@ class MP3TaggerGUI:
             if not operation_result.success:
                 report = f"❌ {operation_result.message}"
             else:
-                # Create backup before modification
-                backup_result = self.engine.backup_original_file(mp3_path)
-                if not backup_result.success:
-                    messagebox.showwarning("Warning", backup_result.message)
-                
                 # Process cover art only for save operations
                 cover_data = None
                 if valid_data["cover_path"]:
@@ -747,7 +729,7 @@ class MP3TaggerGUI:
 
     def save(self):
         """Handle save button click"""
-        if not messagebox.askyesno("Confirm", "Are you sure you want to save changes? A backup will be created."):
+        if not messagebox.askyesno("Confirm", "Are you sure you want to save changes?"):
             return
         self.process_operation(preview_mode=False)
 
