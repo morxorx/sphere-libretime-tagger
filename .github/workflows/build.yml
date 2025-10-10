@@ -95,7 +95,6 @@ jobs:
     
     - name: Build macOS app (onedir mode)
       run: |
-        # Use explicit filenames to avoid variable expansion issues
         pyinstaller --name="LibreTime Tagger" --windowed --onedir --icon="icon.icns" --clean "libretime_tagger.py"
     
     - name: Create DMG package from app bundle
@@ -160,6 +159,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.get_release.outputs.upload_url }}
-        asset_path: ./LibreTime Tagger-${GITHUB_REF_NAME}.dmg
+        asset_path: ./LibreTime Tagger-*.dmg
         asset_name: LibreTime Tagger-macOS.dmg
         asset_content_type: application/octet-stream
