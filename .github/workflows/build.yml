@@ -7,6 +7,9 @@ on:
 
 env:
   APP_NAME: "LibreTime Tagger"
+  SCRIPT_FILE: "libretime_tagger.py"  # Your actual filename
+  MAC_ICON: "icon.icns"           # Your macOS icon
+  WIN_ICON: "icon.ico"           # Use same for Windows for now
 
 jobs:
   build-windows:
@@ -31,13 +34,17 @@ jobs:
     
     - name: Build Windows executable
       run: |
-        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --icon=icon.ico --clean libretime_tagger_crossplatform.py
+        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --icon=${{ env.WIN_ICON }} --clean ${{ env.SCRIPT_FILE }}
     
-    - name: Upload Windows artifact
-      uses: actions/upload-artifact@v4
+    - name: Upload Windows executable to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: LibreTime-Tagger-Windows
-        path: dist/${{ env.APP_NAME }}.exe
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./dist/${{ env.APP_NAME }}.exe
+        asset_name: ${{ env.APP_NAME }}-Windows.exe
+        asset_content_type: application/octet-stream
 
   build-macos:
     runs-on: macos-latest
@@ -61,13 +68,14 @@ jobs:
     
     - name: Build macOS app
       run: |
-        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --icon=icon.icns --clean libretime_tagger_crossplatform.py
+        pyinstaller --name="${{ env.APP_NAME }}" --windowed --onefile --icon=${{ env.MAC_ICON }} --clean ${{ env.SCRIPT_FILE }}
     
     - name: Create DMG package
       run: |
         brew install create-dmg
         create-dmg \
           --volname "${{ env.APP_NAME }}" \
+          --volicon "${{ env.MAC_ICON }}" \
           --window-pos 200 120 \
           --window-size 600 400 \
           --icon-size 100 \
@@ -77,10 +85,22 @@ jobs:
           "${{ env.APP_NAME }}-${GITHUB_REF_NAME}.dmg" \
           "dist/"
     
-    - name: Upload macOS artifacts
-      uses: actions/upload-artifact@v4
+    - name: Upload macOS app to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        name: LibreTime-Tagger-macOS
-        path: |
-          dist/${{ env.APP_NAME }}
-          ${{ env.APP_NAME }}-*.dmg
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./dist/${{ env.APP_NAME }}
+        asset_name: ${{ env.APP_NAME }}-macOS
+        asset_content_type: application/octet-stream
+    
+    - name: Upload macOS DMG to release
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ github.event.release.upload_url }}
+        asset_path: ./${{ env.APP_NAME }}-${GITHUB_REF_NAME}.dmg
+        asset_name: ${{ env.APP_NAME }}-macOS.dmg
+        asset_content_type: application/octet-stream
