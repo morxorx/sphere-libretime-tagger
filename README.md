@@ -50,7 +50,7 @@ Accept again.
 
 ## More Information
 
-Everything should be pretty self-explanatory.
+Everything should be pretty self-explanatory. Sometimes the fields are bit hard to click. Pressing TAB sometimes helps.
 
 ### Fields
 
