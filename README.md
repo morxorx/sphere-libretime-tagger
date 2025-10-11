@@ -18,7 +18,7 @@ However, on macOS you must go extra steps to be able to install the tagger.
 
 1. Download the App
 2. Drag and drop the `.app` file in your Applications folder
-3. Open Terminal paste this
+3. Open Terminal run this command (copy, paste, enter):
 
    ```bash
    xattr -dr com.apple.quarantine "/Applications/LibreTime Tagger.app"
