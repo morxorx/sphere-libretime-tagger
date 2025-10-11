@@ -6,16 +6,19 @@ libretime_tagger.py - Refactored MP3 Tagger with improved architecture
 import re
 import os
 import sys
+import json
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, Tuple, NamedTuple, List
 import tkinter as tk
 from tkinter import filedialog, messagebox, scrolledtext
+from tkinter import ttk
 from mutagen.id3 import ID3, ID3NoHeaderError, TIT2, APIC, error, TPE1, TALB, TRCK, TCOM
 from PIL import Image, UnidentifiedImageError, ImageTk
 import io
 import platform
 import subprocess
+import calendar
 
 # ----------------- Data Models ----------------- #
 
@@ -35,6 +38,268 @@ class MP3Tags(NamedTuple):
     album: str
     track_number: str
     composer: str
+
+# ----------------- Template Management ----------------- #
+
+class TemplateManager:
+    """
+    Manages template storage and retrieval using JSON files
+    """
+    
+    def __init__(self, app_name: str = "LibreTimeTagger"):
+        self.app_name = app_name
+        self.config_dir = self._get_config_dir()
+        self.template_path = self.config_dir / "template.json"
+        self._ensure_config_dir()
+    
+    def _get_config_dir(self) -> Path:
+        """Get platform-appropriate config directory"""
+        if platform.system() == "Windows":
+            base_dir = Path(os.environ.get('APPDATA', Path.home()))
+        elif platform.system() == "Darwin":  # macOS
+            base_dir = Path.home() / "Library" / "Application Support"
+        else:  # Linux and other Unix-like
+            base_dir = Path.home() / ".config"
+        
+        return base_dir / self.app_name
+    
+    def _ensure_config_dir(self):
+        """Create config directory if it doesn't exist"""
+        self.config_dir.mkdir(parents=True, exist_ok=True)
+    
+    def load_template(self) -> Dict[str, str]:
+        """
+        Load template data from JSON file
+        
+        Returns:
+            Dictionary with template data or empty dict if no template exists
+        """
+        try:
+            if self.template_path.exists():
+                with open(self.template_path, 'r', encoding='utf-8') as f:
+                    template_data = json.load(f)
+                    # Validate that we have a dictionary
+                    if isinstance(template_data, dict):
+                        return template_data
+                    else:
+                        print(f"Warning: Template file exists but contains invalid data: {self.template_path}")
+                        return {}
+            return {}
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            print(f"Error loading template from {self.template_path}: {e}")
+            return {}
+        except Exception as e:
+            print(f"Unexpected error loading template: {e}")
+            return {}
+    
+    def save_template(self, 
+                     show_name: str = "", 
+                     contributors: str = "", 
+                     cover_art_path: str = "",
+                     auto_load: bool = True) -> bool:
+        """
+        Save current fields as template
+        
+        Args:
+            show_name: The show name to save
+            contributors: The contributors list to save
+            cover_art_path: Path to the cover art image
+            auto_load: Whether to auto-load this template on startup
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            template_data = {
+                "show_name": show_name.strip(),
+                "contributors": contributors.strip(),
+                "cover_art_path": cover_art_path.strip(),
+                "auto_load": bool(auto_load),
+                "last_updated": datetime.now().isoformat(),
+                "version": "1.0"
+            }
+            
+            with open(self.template_path, 'w', encoding='utf-8') as f:
+                json.dump(template_data, f, indent=2, ensure_ascii=False)
+            
+            print(f"Template saved successfully to: {self.template_path}")
+            return True
+            
+        except Exception as e:
+            print(f"Error saving template to {self.template_path}: {e}")
+            return False
+    
+    def update_template_partial(self, **updates) -> bool:
+        """
+        Update specific fields in the template without overwriting others
+        
+        Args:
+            **updates: Key-value pairs to update in the template
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Load existing template
+            current_template = self.load_template()
+            
+            # Update with new values
+            current_template.update(updates)
+            current_template["last_updated"] = datetime.now().isoformat()
+            
+            # Save updated template
+            with open(self.template_path, 'w', encoding='utf-8') as f:
+                json.dump(current_template, f, indent=2, ensure_ascii=False)
+            
+            return True
+            
+        except Exception as e:
+            print(f"Error updating template: {e}")
+            return False
+    
+    def delete_template(self) -> bool:
+        """
+        Delete the template file
+        
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if self.template_path.exists():
+                self.template_path.unlink()
+                print("Template deleted successfully")
+                return True
+            return True  # No template to delete is also success
+        except Exception as e:
+            print(f"Error deleting template: {e}")
+            return False
+    
+    def template_exists(self) -> bool:
+        """Check if a template file exists"""
+        return self.template_path.exists()
+    
+    def get_template_info(self) -> Dict[str, any]:
+        """
+        Get template metadata without loading full content
+        
+        Returns:
+            Dictionary with template information
+        """
+        if not self.template_exists():
+            return {"exists": False}
+        
+        try:
+            with open(self.template_path, 'r', encoding='utf-8') as f:
+                template_data = json.load(f)
+            
+            info = {
+                "exists": True,
+                "file_size": self.template_path.stat().st_size,
+                "last_modified": datetime.fromtimestamp(self.template_path.stat().st_mtime),
+                "auto_load": template_data.get("auto_load", False),
+                "has_show_name": bool(template_data.get("show_name")),
+                "has_contributors": bool(template_data.get("contributors")),
+                "has_cover_art": bool(template_data.get("cover_art_path")),
+            }
+            
+            if "last_updated" in template_data:
+                try:
+                    info["last_updated"] = datetime.fromisoformat(template_data["last_updated"])
+                except ValueError:
+                    info["last_updated"] = "Unknown"
+            
+            return info
+            
+        except Exception as e:
+            return {"exists": True, "error": str(e)}
+    
+    def validate_template(self) -> ValidationResult:
+        """
+        Validate the template file structure and content
+        
+        Returns:
+            ValidationResult with success status and message
+        """
+        if not self.template_exists():
+            return ValidationResult(False, "No template file exists")
+        
+        try:
+            with open(self.template_path, 'r', encoding='utf-8') as f:
+                template_data = json.load(f)
+            
+            # Check required structure
+            if not isinstance(template_data, dict):
+                return ValidationResult(False, "Template is not a valid JSON object")
+            
+            # Check for expected fields (these can be empty)
+            expected_fields = ["show_name", "contributors", "cover_art_path", "auto_load"]
+            for field in expected_fields:
+                if field not in template_data:
+                    return ValidationResult(False, f"Missing expected field: {field}")
+            
+            # Validate cover art path if provided
+            cover_path = template_data.get("cover_art_path", "")
+            if cover_path and not Path(cover_path).exists():
+                return ValidationResult(True, f"Warning: Cover art path does not exist: {cover_path}", template_data)
+            
+            return ValidationResult(True, "Template is valid", template_data)
+            
+        except json.JSONDecodeError as e:
+            return ValidationResult(False, f"Template file contains invalid JSON: {e}")
+        except Exception as e:
+            return ValidationResult(False, f"Error validating template: {e}")
+    
+    def export_template(self, export_path: Path) -> bool:
+        """
+        Export template to a specified location
+        
+        Args:
+            export_path: Path where to export the template
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            if not self.template_exists():
+                return False
+            
+            # Copy the template file
+            import shutil
+            shutil.copy2(self.template_path, export_path)
+            print(f"Template exported to: {export_path}")
+            return True
+            
+        except Exception as e:
+            print(f"Error exporting template: {e}")
+            return False
+    
+    def import_template(self, import_path: Path) -> bool:
+        """
+        Import template from a specified location
+        
+        Args:
+            import_path: Path to the template file to import
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        try:
+            # Validate the import file first
+            with open(import_path, 'r', encoding='utf-8') as f:
+                template_data = json.load(f)
+            
+            if not isinstance(template_data, dict):
+                return False
+            
+            # Copy the file
+            import shutil
+            shutil.copy2(import_path, self.template_path)
+            print(f"Template imported from: {import_path}")
+            return True
+            
+        except Exception as e:
+            print(f"Error importing template: {e}")
+            return False
 
 # ----------------- Configuration ----------------- #
 
@@ -70,20 +335,15 @@ class MP3TaggerEngine:
         return ValidationResult(True, "", str(int(num.strip())))
 
     @staticmethod
-    def get_broadcast_date(day: str, month: str, year: str) -> ValidationResult:
-        day = day.strip()
-        month = month.strip()
-        year = year.strip()
-        
-        # Check if any field is empty
-        if not day or not month or not year:
-            return ValidationResult(False, "Broadcast date is required - please enter day, month, and year")
+    def get_broadcast_date(date_str: str) -> ValidationResult:
+        if not date_str.strip():
+            return ValidationResult(False, "Broadcast date is required")
         
         try:
-            dt = datetime(int(year), int(month), int(day))
+            dt = datetime.strptime(date_str.strip(), "%d.%m.%Y")
             return ValidationResult(True, "", dt.strftime("%d.%m.%Y"))
         except ValueError as e:
-            return ValidationResult(False, f"Invalid date combination: {e}")
+            return ValidationResult(False, f"Invalid date format. Use DD.MM.YYYY: {e}")
 
     @staticmethod
     def sanitize_filename(name: str) -> str:
@@ -255,131 +515,273 @@ class MP3TaggerEngine:
             return ValidationResult(True, "", new_path)
         except Exception as e:
             return ValidationResult(False, f"Error renaming file: {e}")
-        
+
+# ----------------- Template Testing Functions ----------------- #
+
+def test_template_system():
+    """Test function to demonstrate the template system"""
+    print("=== Testing Template System ===\n")
+    
+    # Create template manager
+    tm = TemplateManager()
+    
+    print(f"Config directory: {tm.config_dir}")
+    print(f"Template path: {tm.template_path}")
+    print(f"Template exists: {tm.template_exists()}\n")
+    
+    # Test saving a template
+    print("1. Saving template...")
+    success = tm.save_template(
+        show_name="My Awesome Podcast",
+        contributors="DJ Alice, DJ Bob",
+        cover_art_path="/home/user/podcast_cover.jpg",
+        auto_load=True
+    )
+    print(f"Save successful: {success}\n")
+    
+    # Test loading template
+    print("2. Loading template...")
+    template = tm.load_template()
+    print(f"Loaded template: {template}\n")
+    
+    # Test template info
+    print("3. Template info...")
+    info = tm.get_template_info()
+    for key, value in info.items():
+        print(f"  {key}: {value}")
+    print()
+    
+    # Test validation
+    print("4. Validating template...")
+    validation = tm.validate_template()
+    print(f"Validation: {validation.success}")
+    print(f"Message: {validation.message}\n")
+    
+    # Test partial update
+    print("5. Partial update...")
+    tm.update_template_partial(contributors="DJ Alice, DJ Bob, DJ Charlie")
+    updated_template = tm.load_template()
+    print(f"Updated contributors: {updated_template.get('contributors')}\n")
+    
+    # Test cleanup
+    print("6. Cleaning up...")
+    delete_success = tm.delete_template()
+    print(f"Delete successful: {delete_success}")
+
 # ----------------- GUI Application ----------------- #
+
+class CalendarDialog:
+    """Simple calendar dialog for date selection"""
+    def __init__(self, parent):
+        self.top = tk.Toplevel(parent)
+        self.top.title("Select Date")
+        self.top.transient(parent)
+        self.top.grab_set()
+        
+        self.result = None
+        
+        # Center the dialog
+        self.top.geometry("+%d+%d" % (parent.winfo_rootx() + 50, parent.winfo_rooty() + 50))
+        
+        self.create_widgets()
+        
+    def create_widgets(self):
+        today = datetime.today()
+        self.year = today.year
+        self.month = today.month
+        
+        # Month and year navigation
+        nav_frame = tk.Frame(self.top)
+        nav_frame.pack(padx=10, pady=5)
+        
+        tk.Button(nav_frame, text="<", command=self.prev_month).pack(side=tk.LEFT)
+        self.month_label = tk.Label(nav_frame, text="", width=20)
+        self.month_label.pack(side=tk.LEFT, padx=5)
+        tk.Button(nav_frame, text=">", command=self.next_month).pack(side=tk.LEFT)
+        
+        # Calendar
+        self.cal_frame = tk.Frame(self.top)
+        self.cal_frame.pack(padx=10, pady=5)
+        
+        # Buttons
+        btn_frame = tk.Frame(self.top)
+        btn_frame.pack(padx=10, pady=10)
+        
+        tk.Button(btn_frame, text="OK", command=self.ok).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Cancel", command=self.cancel).pack(side=tk.LEFT, padx=5)
+        
+        self.update_calendar()
+        
+    def update_calendar(self):
+        # Update month label
+        self.month_label.config(text=calendar.month_name[self.month] + " " + str(self.year))
+        
+        # Clear existing calendar
+        for widget in self.cal_frame.winfo_children():
+            widget.destroy()
+            
+        # Create day headers
+        days = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"]
+        for i, day in enumerate(days):
+            tk.Label(self.cal_frame, text=day, width=4).grid(row=0, column=i)
+            
+        # Get calendar matrix
+        cal = calendar.monthcalendar(self.year, self.month)
+        
+        # Create day buttons
+        for week_num, week in enumerate(cal):
+            for day_num, day in enumerate(week):
+                if day != 0:
+                    btn = tk.Button(
+                        self.cal_frame, 
+                        text=str(day), 
+                        width=4,
+                        command=lambda d=day: self.select_date(d)
+                    )
+                    btn.grid(row=week_num + 1, column=day_num, padx=1, pady=1)
+                    
+    def prev_month(self):
+        self.month -= 1
+        if self.month < 1:
+            self.month = 12
+            self.year -= 1
+        self.update_calendar()
+        
+    def next_month(self):
+        self.month += 1
+        if self.month > 12:
+            self.month = 1
+            self.year += 1
+        self.update_calendar()
+        
+    def select_date(self, day):
+        self.result = f"{day:02d}.{self.month:02d}.{self.year}"
+        self.top.destroy()
+        
+    def ok(self):
+        if not self.result:
+            # If no date selected, use today
+            today = datetime.today()
+            self.result = f"{today.day:02d}.{today.month:02d}.{today.year}"
+        self.top.destroy()
+        
+    def cancel(self):
+        self.top.destroy()
+
 
 class MP3TaggerGUI:
     def __init__(self, master):
         self.master = master
         self.engine = MP3TaggerEngine()
+        self.template_manager = TemplateManager()
         self.cover_image = None
+        
+        # Initialize autoload state
+        self.autoload_enabled = False
+        self.autoload_template_path = None
+        
         self.setup_gui()
+        
+        # Load autoload preference and auto-load template if enabled
+        if self.load_autoload_preference():
+            self.auto_load_template()
 
     def setup_gui(self):
         """Initialize the GUI components"""
         self.master.title("LibreTime MP3 Tagger")
-        self.master.resizable(True, False)
-        self.master.columnconfigure(1, weight=1)
-
-        self.create_file_selection()
-        self.create_metadata_fields()
-        self.create_date_fields()
-        self.create_cover_art_section()
-        self.create_action_buttons()
-        self.create_output_area()
-
-    def create_file_selection(self):
-        """Create file selection widgets"""
-        tk.Label(self.master, text="Select MP3 file:").grid(
-            row=0, column=0, sticky="w", padx=5
+        self.master.resizable(False, False)
+        
+        # Create main frame with vertical layout
+        main_frame = tk.Frame(self.master, padx=10, pady=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Configure grid weights for proper resizing
+        main_frame.columnconfigure(1, weight=1)
+        
+        row = 0
+        
+        # File selection button
+        tk.Button(main_frame, text="Select MP3 File", command=self.browse_file, width=20).grid(
+            row=row, column=0, columnspan=2, pady=5, sticky="ew"
         )
-        self.file_entry = tk.Entry(self.master)
-        self.file_entry.grid(
-            row=0, column=1, sticky="ew", padx=5, pady=3
+        row += 1
+        
+        # Contributors field
+        tk.Label(main_frame, text="Contributors (comma-separated):").grid(
+            row=row, column=0, sticky="w", pady=2
         )
-        tk.Button(self.master, text="Browse", command=self.browse_file, width=10).grid(
-            row=0, column=2, padx=5
-        )
-
-    def create_metadata_fields(self):
-        """Create metadata input fields"""
-        # Hosts/Contributors
-        tk.Label(self.master, text="Contributors (comma-separated):").grid(
-            row=1, column=0, sticky="w", padx=5
-        )
-        self.hosts_entry = tk.Entry(self.master)
+        self.hosts_entry = tk.Entry(main_frame)
         self.hosts_entry.grid(
-            row=1, column=1, columnspan=2, sticky="ew", padx=5, pady=3
+            row=row, column=1, sticky="ew", pady=2, padx=(5, 0)
         )
-
-        # Show Name
-        tk.Label(self.master, text="Show Name:").grid(
-            row=2, column=0, sticky="w", padx=5
+        row += 1
+        
+        # Show Name field
+        tk.Label(main_frame, text="Show Name:").grid(
+            row=row, column=0, sticky="w", pady=2
         )
-        self.show_entry = tk.Entry(self.master)
+        self.show_entry = tk.Entry(main_frame)
         self.show_entry.grid(
-            row=2, column=1, columnspan=2, sticky="ew", padx=5, pady=3
+            row=row, column=1, sticky="ew", pady=2, padx=(5, 0)
         )
-
-        # Episode Number & Title
-        tk.Label(self.master, text="Episode Number:").grid(
-            row=3, column=0, sticky="w", padx=5
+        row += 1
+        
+        # Episode Number field
+        tk.Label(main_frame, text="Episode Number:").grid(
+            row=row, column=0, sticky="w", pady=2
         )
-        
-        # Create a frame for episode fields to ensure proper alignment
-        episode_frame = tk.Frame(self.master)
-        episode_frame.grid(row=3, column=1, columnspan=2, sticky="ew", padx=5, pady=3)
-        episode_frame.columnconfigure(1, weight=1)  # Make episode title expand
-        
-        self.episode_entry = tk.Entry(episode_frame, width=10)
-        self.episode_entry.grid(row=0, column=0, sticky="w", padx=(0, 5))
-        
-        tk.Label(episode_frame, text="Episode Title (optional):").grid(
-            row=0, column=1, sticky="e", padx=(0, 5)
+        self.episode_entry = tk.Entry(main_frame)
+        self.episode_entry.grid(
+            row=row, column=1, sticky="ew", pady=2, padx=(5, 0)
         )
-        self.episode_title_entry = tk.Entry(episode_frame)
-        self.episode_title_entry.grid(row=0, column=2, sticky="ew")
-
-    def create_date_fields(self):
-        """Create date input fields"""
-        tk.Label(self.master, text="Broadcast Date:").grid(
-            row=4, column=0, sticky="w", padx=5
-        )
-        date_frame = tk.Frame(self.master)
-        date_frame.grid(row=4, column=1, columnspan=2, sticky="w", padx=5, pady=3)
+        row += 1
         
-        tk.Label(date_frame, text="Day").grid(row=0, column=0, padx=(0, 2))
-        self.day_entry = tk.Entry(date_frame, width=4)
-        self.day_entry.grid(row=0, column=1, padx=(0, 10))
-        
-        tk.Label(date_frame, text="Month").grid(row=0, column=2, padx=(0, 2))
-        self.month_entry = tk.Entry(date_frame, width=4)
-        self.month_entry.grid(row=0, column=3, padx=(0, 10))
-        
-        tk.Label(date_frame, text="Year").grid(row=0, column=4, padx=(0, 2))
-        self.year_entry = tk.Entry(date_frame, width=6)
-        self.year_entry.grid(row=0, column=5, padx=(0, 0))
-
-    def create_cover_art_section(self):
-        """Create cover art selection and preview"""
-        tk.Label(self.master, text="Cover Art:").grid(
-            row=5, column=0, sticky="w", padx=5
+        # Episode Title field
+        tk.Label(main_frame, text="Episode Title (optional):").grid(
+            row=row, column=0, sticky="w", pady=2
         )
-        self.cover_entry = tk.Entry(self.master)
-        self.cover_entry.grid(
-            row=5, column=1, sticky="ew", padx=5, pady=3
+        self.episode_title_entry = tk.Entry(main_frame)
+        self.episode_title_entry.grid(
+            row=row, column=1, sticky="ew", pady=2, padx=(5, 0)
         )
-        tk.Button(self.master, text="Browse", command=self.browse_cover, width=10).grid(
-            row=5, column=2, padx=5
-        )
-
-        # Cover Preview - use a frame to eliminate the grey border
-        cover_frame = tk.Frame(self.master, bg="white", relief="sunken", bd=1)
-        cover_frame.grid(row=5, column=3, padx=5, pady=5)
+        row += 1
         
+        # Broadcast Date with calendar button
+        tk.Label(main_frame, text="Broadcast Date:").grid(
+            row=row, column=0, sticky="w", pady=2
+        )
+        date_frame = tk.Frame(main_frame)
+        date_frame.grid(row=row, column=1, sticky="ew", pady=2, padx=(5, 0))
+        date_frame.columnconfigure(0, weight=1)
+        
+        self.date_entry = tk.Entry(date_frame)
+        self.date_entry.grid(row=0, column=0, sticky="ew")
+        
+        tk.Button(date_frame, text="📅", command=self.open_calendar, width=3).grid(
+            row=0, column=1, padx=(5, 0)
+        )
+        row += 1
+        
+        # Cover Art preview (clickable)
+        tk.Label(main_frame, text="Cover Art:").grid(
+            row=row, column=0, sticky="w", pady=2
+        )
         self.cover_canvas = tk.Canvas(
-            cover_frame, 
+            main_frame, 
             width=COVER_PREVIEW_SIZE, 
             height=COVER_PREVIEW_SIZE,
             bg="white", 
-            highlightthickness=0  # Remove canvas border
+            relief="sunken",
+            bd=1,
+            cursor="hand2"  # Show hand cursor to indicate clickability
         )
-        self.cover_canvas.pack()
-
-    def create_action_buttons(self):
-        """Create action buttons"""
-        button_frame = tk.Frame(self.master)
-        button_frame.grid(row=6, column=0, columnspan=4, pady=10)
+        self.cover_canvas.grid(row=row, column=1, pady=5, padx=(5, 0), sticky="w")
+        self.cover_canvas.bind("<Button-1>", self.browse_cover)  # Make canvas clickable
+        row += 1
+        
+        # Action buttons
+        button_frame = tk.Frame(main_frame)
+        button_frame.grid(row=row, column=0, columnspan=2, pady=10)
         
         tk.Button(button_frame, text="Preview", command=self.preview, width=12).pack(
             side="left", padx=5
@@ -390,38 +792,310 @@ class MP3TaggerGUI:
         tk.Button(button_frame, text="Clear", command=self.clear_all, width=12).pack(
             side="left", padx=5
         )
-
-    def create_output_area(self):
-        """Create output text area"""
+        row += 1
+        
+        # Output area
         self.output_box = scrolledtext.ScrolledText(
-            self.master, 
-            width=80, 
-            height=15, 
+            main_frame, 
+            width=60, 
+            height=12, 
             state="disabled"
         )
         self.output_box.grid(
-            row=7, column=0, columnspan=4, padx=5, pady=5, sticky="ew"
+            row=row, column=0, columnspan=2, pady=5, sticky="ew"
         )
+        row += 1
+
+        # === NEW: Template Management Buttons ===
+        template_frame = tk.Frame(main_frame)
+        template_frame.grid(row=row, column=0, columnspan=2, pady=10, sticky="ew")
+        
+        # Configure equal spacing for buttons
+        template_frame.columnconfigure(0, weight=1)
+        template_frame.columnconfigure(1, weight=1)
+        template_frame.columnconfigure(2, weight=1)
+        
+        # Save Template As button
+        self.save_template_btn = tk.Button(
+            template_frame, 
+            text="Save template as…", 
+            command=self.save_template_as,
+            width=15
+        )
+        self.save_template_btn.grid(row=0, column=0, padx=5)
+        
+        # Load Template button
+        self.load_template_btn = tk.Button(
+            template_frame, 
+            text="Load template", 
+            command=self.load_template,
+            width=15
+        )
+        self.load_template_btn.grid(row=0, column=1, padx=5)
+        
+        # Autoload toggle button
+        self.autoload_btn = tk.Button(
+            template_frame, 
+            text="Autoload", 
+            command=self.toggle_autoload,
+            width=15
+        )
+        self.autoload_btn.grid(row=0, column=2, padx=5)
+        
+        # Track autoload state and template
+        self.autoload_enabled = False
+        self.autoload_template_path = None
+        self.update_autoload_button_style()
+
+    # === NEW: Template Management Methods ===
+
+    def save_template_as(self):
+        """Save current fields as a named template file"""
+        # Get current field values
+        hosts = self.hosts_entry.get().strip()
+        show = self.show_entry.get().strip()
+        cover_path = getattr(self, 'current_cover_path', '')
+        
+        if not show:
+            messagebox.showwarning("Warning", "Please enter a Show Name before saving as template.")
+            return
+        
+        # Ask for save location
+        file_path = filedialog.asksaveasfilename(
+            title="Save Template As...",
+            defaultextension=".json",
+            filetypes=[("JSON Template Files", "*.json"), ("All Files", "*.*")]
+        )
+        
+        if file_path:
+            try:
+                # Create template data
+                template_data = {
+                    "show_name": show,
+                    "contributors": hosts,
+                    "cover_art_path": cover_path,
+                    "auto_load": False,  # Don't auto-load custom templates by default
+                    "last_updated": datetime.now().isoformat(),
+                    "version": "1.0",
+                    "is_custom_template": True  # Mark as custom template
+                }
+                
+                # Save to selected location
+                with open(file_path, 'w', encoding='utf-8') as f:
+                    json.dump(template_data, f, indent=2, ensure_ascii=False)
+                
+                self.display_output(f"✅ Template saved as: {os.path.basename(file_path)}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save template: {e}")
+
+    def load_template(self):
+        """Load a template file and populate fields"""
+        file_path = filedialog.askopenfilename(
+            title="Load Template",
+            filetypes=[("JSON Template Files", "*.json"), ("All Files", "*.*")]
+        )
+        
+        if file_path:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    template_data = json.load(f)
+                
+                # Validate template structure
+                if not isinstance(template_data, dict):
+                    messagebox.showerror("Error", "Invalid template file format.")
+                    return
+                
+                # Populate fields
+                self.hosts_entry.delete(0, tk.END)
+                self.hosts_entry.insert(0, template_data.get('contributors', ''))
+                
+                self.show_entry.delete(0, tk.END)
+                self.show_entry.insert(0, template_data.get('show_name', ''))
+                
+                # Load cover art if path exists and file exists
+                cover_path = template_data.get('cover_art_path', '')
+                if cover_path and os.path.exists(cover_path):
+                    self.show_cover_preview(cover_path)
+                else:
+                    # Clear cover preview if path doesn't exist
+                    self.clear_cover_preview()
+                
+                self.display_output(f"✅ Template loaded: {os.path.basename(file_path)}")
+                
+            except json.JSONDecodeError:
+                messagebox.showerror("Error", "Invalid JSON in template file.")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load template: {e}")
+
+    def toggle_autoload(self):
+        """Toggle autoload feature on/off"""
+        if not self.autoload_enabled:
+            # Turn autoload on - show template selection
+            self.select_autoload_template()
+        else:
+            # Turn autoload off
+            self.autoload_enabled = False
+            self.autoload_template_path = None
+            self.update_autoload_button_style()
+            self.display_output("🔴 Autoload disabled")
+
+    def select_autoload_template(self):
+        """Select a template for autoload"""
+        file_path = filedialog.askopenfilename(
+            title="Select Template for Autoload",
+            filetypes=[("JSON Template Files", "*.json"), ("All Files", "*.*")]
+        )
+        
+        if file_path:
+            try:
+                # Validate the template file
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    template_data = json.load(f)
+                
+                if not isinstance(template_data, dict):
+                    messagebox.showerror("Error", "Invalid template file format.")
+                    return
+                
+                # Enable autoload
+                self.autoload_enabled = True
+                self.autoload_template_path = file_path
+                
+                # Save autoload preference
+                self.save_autoload_preference(file_path)
+                
+                self.update_autoload_button_style()
+                self.display_output(f"🔵 Autoload enabled: {os.path.basename(file_path)}")
+                
+            except Exception as e:
+                messagebox.showerror("Error", f"Invalid template file: {e}")
+
+    def save_autoload_preference(self, template_path):
+        """Save autoload preference to app config"""
+        try:
+            autoload_config = {
+                "enabled": True,
+                "template_path": template_path,
+                "last_updated": datetime.now().isoformat()
+            }
+            
+            config_path = self.template_manager.config_dir / "autoload.json"
+            with open(config_path, 'w', encoding='utf-8') as f:
+                json.dump(autoload_config, f, indent=2)
+                
+        except Exception as e:
+            print(f"Warning: Could not save autoload preference: {e}")
+
+    def load_autoload_preference(self):
+        """Load autoload preference on app startup"""
+        try:
+            config_path = self.template_manager.config_dir / "autoload.json"
+            if config_path.exists():
+                with open(config_path, 'r', encoding='utf-8') as f:
+                    config = json.load(f)
+                
+                if config.get('enabled') and config.get('template_path'):
+                    template_path = config['template_path']
+                    if os.path.exists(template_path):
+                        self.autoload_enabled = True
+                        self.autoload_template_path = template_path
+                        self.update_autoload_button_style()
+                        return True
+                        
+        except Exception as e:
+            print(f"Warning: Could not load autoload preference: {e}")
+        
+        return False
+
+    def auto_load_template(self):
+        """Automatically load the selected template on startup"""
+        if self.autoload_enabled and self.autoload_template_path:
+            try:
+                with open(self.autoload_template_path, 'r', encoding='utf-8') as f:
+                    template_data = json.load(f)
+                
+                # Populate fields
+                self.hosts_entry.delete(0, tk.END)
+                self.hosts_entry.insert(0, template_data.get('contributors', ''))
+                
+                self.show_entry.delete(0, tk.END)
+                self.show_entry.insert(0, template_data.get('show_name', ''))
+                
+                # Load cover art if path exists
+                cover_path = template_data.get('cover_art_path', '')
+                if cover_path and os.path.exists(cover_path):
+                    self.show_cover_preview(cover_path)
+                
+                self.display_output(f"🔵 Autoloaded template: {os.path.basename(self.autoload_template_path)}")
+                
+            except Exception as e:
+                self.display_output(f"⚠️ Failed to autoload template: {e}")
+
+    def update_autoload_button_style(self):
+        """Update the autoload button appearance based on state"""
+        if self.autoload_enabled:
+            # macOS-style blue button when enabled
+            self.autoload_btn.config(
+                bg="SystemButtonFace",        # macOS blue
+                fg="SystemButtonText",
+                activebackground="SystemButtonFace",
+                activeforeground="SystemButtonText"
+            )
+            self.autoload_btn.config(text="Autoload: ON")
+        else:
+            # Default button style when disabled
+            self.autoload_btn.config(
+                bg="SystemButtonFace",
+                fg="SystemButtonText", 
+                activebackground="SystemButtonFace",
+                activeforeground="SystemButtonText"
+            )
+            self.autoload_btn.config(text="Autoload: OFF")
+
+    def clear_cover_preview(self):
+        """Clear the cover art preview"""
+        self.cover_canvas.delete("all")
+        self.cover_canvas.create_rectangle(0, 0, COVER_PREVIEW_SIZE, COVER_PREVIEW_SIZE, fill="white", outline="")
+        self.cover_canvas.create_text(
+            COVER_PREVIEW_SIZE // 2, 
+            COVER_PREVIEW_SIZE // 2,
+            text="Click to select\ncover art", 
+            fill="gray", 
+            anchor="center"
+        )
+        self.cover_image = None
+        if hasattr(self, 'current_cover_path'):
+            delattr(self, 'current_cover_path')
+
+    # === Existing Methods (Updated) ===
+
+    def open_calendar(self):
+        """Open calendar dialog for date selection"""
+        dialog = CalendarDialog(self.master)
+        self.master.wait_window(dialog.top)
+        
+        if dialog.result:
+            self.date_entry.delete(0, tk.END)
+            self.date_entry.insert(0, dialog.result)
 
     def browse_file(self):
         """Browse for MP3 file"""
         file_path = filedialog.askopenfilename(filetypes=[("MP3 Files", "*.mp3")])
         if file_path:
-            self.file_entry.delete(0, tk.END)
-            self.file_entry.insert(0, file_path)
+            # Store the file path internally but don't show it in the UI
+            self.current_mp3_path = file_path
+            self.display_output(f"Selected MP3 file: {os.path.basename(file_path)}")
 
-    def browse_cover(self):
-        """Browse for cover art image"""
+    def browse_cover(self, event=None):
+        """Browse for cover art image (can be called from click event)"""
         file_path = filedialog.askopenfilename(
             filetypes=[("Image Files", "*.jpg *.jpeg *.png")]
         )
         if file_path:
-            self.cover_entry.delete(0, tk.END)
-            self.cover_entry.insert(0, file_path)
             self.show_cover_preview(file_path)
 
     def show_cover_preview(self, cover_path: str):
-        """Display cover art preview without grey borders"""
+        """Display cover art preview"""
         self.cover_canvas.delete("all")
         try:
             img = Image.open(cover_path)
@@ -433,9 +1107,12 @@ class MP3TaggerGUI:
             x = (COVER_PREVIEW_SIZE - self.cover_image.width()) // 2
             y = (COVER_PREVIEW_SIZE - self.cover_image.height()) // 2
             
-            # Create image on canvas - fill the entire canvas with white first
+            # Create image on canvas
             self.cover_canvas.create_rectangle(0, 0, COVER_PREVIEW_SIZE, COVER_PREVIEW_SIZE, fill="white", outline="")
             self.cover_canvas.create_image(x, y, anchor="nw", image=self.cover_image)
+            
+            # Store the cover path for later use
+            self.current_cover_path = cover_path
             
         except Exception as e:
             # Clear canvas and show error message
@@ -443,36 +1120,35 @@ class MP3TaggerGUI:
             self.cover_canvas.create_text(
                 COVER_PREVIEW_SIZE // 2, 
                 COVER_PREVIEW_SIZE // 2,
-                text="Invalid image", 
-                fill="red", 
+                text="Click to select\ncover art", 
+                fill="gray", 
                 anchor="center"
             )
             self.cover_image = None
+            if hasattr(self, 'current_cover_path'):
+                delattr(self, 'current_cover_path')
 
     def clear_all(self):
-        """Clear all input fields and reset the form"""
+        """Clear all input fields and reset the form (but keep autoload settings)"""
         # Clear all entry fields
-        self.file_entry.delete(0, tk.END)
         self.hosts_entry.delete(0, tk.END)
         self.show_entry.delete(0, tk.END)
         self.episode_entry.delete(0, tk.END)
         self.episode_title_entry.delete(0, tk.END)
-        self.day_entry.delete(0, tk.END)
-        self.month_entry.delete(0, tk.END)
-        self.year_entry.delete(0, tk.END)
-        self.cover_entry.delete(0, tk.END)
+        self.date_entry.delete(0, tk.END)
         
         # Reset field backgrounds to white
-        for entry in [self.file_entry, self.hosts_entry, self.show_entry, 
+        for entry in [self.hosts_entry, self.show_entry, 
                      self.episode_entry, self.episode_title_entry, 
-                     self.day_entry, self.month_entry, self.year_entry, 
-                     self.cover_entry]:
+                     self.date_entry]:
             entry.config(bg="white")
         
-        # Clear cover preview - fill with white
-        self.cover_canvas.delete("all")
-        self.cover_canvas.create_rectangle(0, 0, COVER_PREVIEW_SIZE, COVER_PREVIEW_SIZE, fill="white", outline="")
-        self.cover_image = None
+        # Clear cover preview
+        self.clear_cover_preview()
+        
+        # Clear stored file paths (but keep autoload template path)
+        if hasattr(self, 'current_mp3_path'):
+            delattr(self, 'current_mp3_path')
         
         # Clear output box
         self.output_box.config(state="normal")
@@ -480,20 +1156,18 @@ class MP3TaggerGUI:
         self.output_box.config(state="disabled")
         
         # Set focus to first field
-        self.file_entry.focus_set()
+        self.hosts_entry.focus_set()
 
     def get_input_values(self) -> Dict[str, str]:
         """Get all input values from the form"""
         return {
-            "file": self.file_entry.get(),
+            "file": getattr(self, 'current_mp3_path', ""),
             "hosts": self.hosts_entry.get(),
             "show": self.show_entry.get(),
             "episode": self.episode_entry.get(),
             "episode_title": self.episode_title_entry.get(),
-            "day": self.day_entry.get(),
-            "month": self.month_entry.get(),
-            "year": self.year_entry.get(),
-            "cover": self.cover_entry.get(),
+            "date": self.date_entry.get(),
+            "cover": getattr(self, 'current_cover_path', ""),
         }
 
     def set_field_validation_style(self, entry_widget: tk.Entry, value: str, valid: bool = True):
@@ -510,9 +1184,7 @@ class MP3TaggerGUI:
         # Validate file
         file_path = Path(values["file"])
         if not file_path.exists() or file_path.suffix.lower() != ".mp3":
-            self.set_field_validation_style(self.file_entry, values["file"], False)
-            return ValidationResult(False, "Please select a valid MP3 file.")
-        self.set_field_validation_style(self.file_entry, values["file"])
+            return ValidationResult(False, "Please select a valid MP3 file using the 'Select MP3 File' button.")
 
         # Validate hosts (can be empty)
         hosts_result = self.engine.validate_hosts(values["hosts"])
@@ -540,14 +1212,8 @@ class MP3TaggerGUI:
         self.set_field_validation_style(self.episode_entry, values["episode"])
 
         # Validate date (MUST be filled)
-        date_result = self.engine.get_broadcast_date(
-            values["day"], values["month"], values["year"]
-        )
-        for entry, val in zip(
-            [self.day_entry, self.month_entry, self.year_entry],
-            [values["day"], values["month"], values["year"]]
-        ):
-            self.set_field_validation_style(entry, val, date_result.success)
+        date_result = self.engine.get_broadcast_date(values["date"])
+        self.set_field_validation_style(self.date_entry, values["date"], date_result.success)
         
         if not date_result.success:
             return ValidationResult(False, f"Broadcast date error: {date_result.message}")
@@ -557,11 +1223,7 @@ class MP3TaggerGUI:
         if cover_path:
             cover_result = self.engine.process_cover_art(cover_path)
             if not cover_result.success:
-                self.set_field_validation_style(self.cover_entry, cover_path, False)
                 return cover_result
-            self.set_field_validation_style(self.cover_entry, cover_path)
-            if preview_mode:
-                self.show_cover_preview(cover_path)
 
         return ValidationResult(True, "", {
             "hosts": hosts_result.value,
@@ -630,10 +1292,9 @@ class MP3TaggerGUI:
         values = self.get_input_values()
         
         # Reset all field styles
-        for entry in [self.file_entry, self.hosts_entry, self.show_entry, 
+        for entry in [self.hosts_entry, self.show_entry, 
                      self.episode_entry, self.episode_title_entry, 
-                     self.day_entry, self.month_entry, self.year_entry, 
-                     self.cover_entry]:
+                     self.date_entry]:
             entry.config(bg="white")
 
         # Validate inputs
@@ -755,4 +1416,7 @@ def main():
         sys.exit(1)
 
 if __name__ == "__main__":
+    # Uncomment the line below to test the template system
+    # test_template_system()
+    
     main()
