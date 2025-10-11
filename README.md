@@ -14,43 +14,19 @@ Cover art is converted to 1400×1400p JPEG format to ensure cross-platform compa
 
 The App is **unsigned** which means that both macOS and Windows will warn the user about potential security risks. You can ignore these.
 
-However, on macOS you must go extra steps to be able to install the tagger:
+However, on macOS you must go extra steps to be able to install the tagger.
 
-**1. Download the App**
+1. Download the App
+2. Drag and drop the `.app` file in your Applications folder
+3. Open Terminal paste this
 
-Find your version under [releases](https://github.com/morxorx/sphere-libretime-tagger/releases). `.dmg` and `.app.zip` for macOS, `.exe` for Windows.
-
-<img width="782" height="559" alt="Bildschirmfoto 2025-10-10 um 17 36 28" src="https://github.com/user-attachments/assets/eeaf918f-72d1-4334-a150-9408a9e0af4f" />
-
-<img width="625" height="370" alt="Bildschirmfoto 2025-10-10 um 17 37 57" src="https://github.com/user-attachments/assets/00927356-30b0-494f-ab16-efbfd8da073d" />
-
-**2. Install**
-
-If you've downloaded the `.dmg`, open it and drag and drop the app into the applications folder
-
-<img width="712" height="512" alt="Bildschirmfoto 2025-10-10 um 17 40 31" src="https://github.com/user-attachments/assets/0c75f1f4-e7e5-4186-82a9-b055e67c85cd" />
-
-**3. Try to open and fail**
-
-Just accept it, but don't move the app to trash.
-
-<img width="409" height="392" alt="Bildschirmfoto 2025-10-10 um 17 41 24" src="https://github.com/user-attachments/assets/e9007cbe-947b-4ee0-8db5-c306283bac7e" />
-
-**4. Go to settings and allow the app**
-
-On macOS settings > Privacy & Security > scroll down and click accept.
-
-<img width="928" height="582" alt="Bildschirmfoto 2025-10-10 um 17 41 53" src="https://github.com/user-attachments/assets/4445b041-ec16-45ed-aca5-51fd41d8d433" />
-
-Accept again.
-
-<img width="409" height="440" alt="Bildschirmfoto 2025-10-10 um 17 42 43" src="https://github.com/user-attachments/assets/dd17f818-8a8b-4446-925c-0ca84ed11b7c" />
-
-**Now you can use the app normally.**
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/LibreTime Tagger.app"
+   ```
 
 ## More Information
 
-Everything should be pretty self-explanatory. Sometimes the fields are bit hard to click. Pressing TAB sometimes helps.
+Everything should be pretty self-explanatory.
 
 ### Fields
 
