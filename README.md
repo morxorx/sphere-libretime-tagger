@@ -18,7 +18,7 @@ However, on macOS you must go extra steps to be able to install the tagger:
 
 **1. Download the App**
 
-Find your version under [releases](https://github.com/morxorx/sphere-libretime-tagger/releases). `.dmg`and .app.zip`for macOS, `.exe` for Windows.
+Find your version under [releases](https://github.com/morxorx/sphere-libretime-tagger/releases). `.dmg` and `.app.zip` for macOS, `.exe` for Windows.
 
 <img width="782" height="559" alt="Bildschirmfoto 2025-10-10 um 17 36 28" src="https://github.com/user-attachments/assets/eeaf918f-72d1-4334-a150-9408a9e0af4f" />
 
