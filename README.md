@@ -6,17 +6,15 @@ The tool lets the user enter the relevant information, which is then saved in ID
 
 Cover art is converted to 1400×1400p JPEG format to ensure cross-platform compatibility.
 
-<img width="1010" height="783" alt="Bildschirmfoto 2025-10-10 um 17 12 48" src="https://github.com/user-attachments/assets/72e0b0bd-0f17-429d-8e4d-735e01615b99" />
-
-<img width="1010" height="783" alt="Bildschirmfoto 2025-10-10 um 17 32 08" src="https://github.com/user-attachments/assets/5ecfd930-d894-4134-9751-aab844a6c5c1" />
+<img width="675" height="846" alt="Bildschirmfoto 2025-10-16 um 16 01 23" src="https://github.com/user-attachments/assets/d98678ae-3b9b-49a1-bcdf-6de04e44e856" />
 
 ## How to Install?
 
 The App is **unsigned** which means that both macOS and Windows will warn the user about potential security risks. You can ignore these.
 
-However, on macOS you must go extra steps to be able to install the tagger.
+However, on macOS you must go extra steps to be able to install the tagger. If you know how to run a Python script, I suggest you do so ([this is the script](https://github.com/morxorx/sphere-libretime-tagger/blob/main/libretime_tagger.py)). Otherwise, this is what you need to do:
 
-1. Download the App
+1. [Download](https://github.com/morxorx/sphere-libretime-tagger/releases) the App
 2. Drag and drop the `.app` file in your Applications folder
 3. Open Terminal run this command (copy, paste, enter):
 
@@ -47,7 +45,7 @@ Optional title of your episode. Not for descriptions.
 Single number per field.
 
 - **Cover Art:** 
-Optional field but nice-to-have. Accepts `.PNG` and `.JPG`.
+Click the big square. Optional field but nice-to-have. Accepts `.PNG` and `.JPG`.
 
 ### Buttons
 
@@ -60,11 +58,24 @@ Saves, obviously. Saving overwrites the information of the original file.
 - **Clear:** 
 Clears all fields at once.
 
+### Templates
+
+You can create, save, and Autoload Templates.
+
+- **Save Template as…:**
+Lets you save the current Show Name, Contributors, and Cover Art. The file you save must exist.
+
+- **Load Template:**
+Lets you load different templates.
+
+- **Autoload:**
+Lets you toggle autoloading a template On or OFF. Clicking this to turn it on will open a window in which you have to select the template you want to autoload.
+
 ## License
 
 The MIT License (MIT)
 
-Copyright (c) 2015 Chris Kibble
+Copyright (c) 2025 Sphere Radio e. V.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 
